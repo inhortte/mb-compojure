@@ -1,6 +1,6 @@
 (ns mb-compojure.db
   (:require [monger.core       :as mg]
-            [monger.query      :as query]
+            [monger.query      :as q]
             [mb-compojure.util :as util])
   (:import [com.mongodb MongoOptions ServerAddress]))
 
@@ -13,24 +13,27 @@
 
 (defn get-page [page]
   {:body
-   (query/with-collection "entry"
-     (query/find {})
-     (query/sort (sorted-map :created_at -1))
-     (query/fields [:subject])
-     (query/paginate :page (Integer/parseInt page) :per-page 11))})
+   (q/with-collection "entry"
+     (q/find {})
+     (q/sort (sorted-map :created_at -1))
+     (q/fields [:subject])
+     (q/paginate :page (Integer/parseInt page) :per-page 11))})
 
 (defn create-new-entry [body])
 
 ;; macro here?
 (defn get-entry-by-id [id]
   {:body
-   (let [entry (query/with-collection "entry"
-                 (query/find {:_id (if (string? id)
+   (let [entry (q/with-collection "entry"
+                 (q/find {:_id (if (string? id)
                                      (Integer/parseInt id) id)}))]
      (if (empty? entry) '() (first entry)))})
 
 (defn get-entries [ids]
   {:body (map #(:body (get-entry-by-id %)) ids)})
+
+(defn get-last-entry []
+  (get-entry-by-id (util/last-id "entry")))
 
 (defn update-entry [id body])
 
@@ -38,13 +41,18 @@
 
 (defn get-topic-by-id [id]
   {:body
-   (let [topic (query/with-collection "topic"
-                 (query/find {:_id (if (string? id)
+   (let [topic (q/with-collection "topic"
+                 (q/find {:_id (if (string? id)
                                      (Integer/parseInt id) id)}))]
      (if (empty? topic) '() (first topic)))})
 
 (defn get-topics [ids]
   {:body (map #(:body (get-topic-by-id %)) ids)})
+
+(defn get-all-topics []
+  {:body
+   (->> (q/with-collection "topic" (q/find {}))
+        (sort-by #(- (count (:entry_ids %)))))})
 
 (defn get-topics-by-entry [id]
   (-> (get-entry-by-id id)
@@ -57,6 +65,12 @@
       (:body)
       (:entry_ids)
       (get-entries)))
+
+(defn create-new-topic [body])
+
+(defn update-topic [id body])
+
+(defn destroy-topic [id])
 
 (defn set-topic [id]
   )
